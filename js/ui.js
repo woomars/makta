@@ -460,10 +460,21 @@
       + ` aria-label="${esc(I18n.LANG_NAMES[l])}" title="${esc(I18n.LANG_NAMES[l])}">${LANG_FLAGS[l]}</button>`).join('');
   }
 
+  // 아이폰일 때만 시작 화면 아래의 작은 「문제 신고」 버튼(허브 공통 ios.js 의 WoomarsIOS, 글자는 지금 언어).
+  // ios.js 는 defer 라 이 스크립트보다 늦게 온다 → woomars-ios-ready 때 다시 그린다. 없거나 실패하면 숨긴 채.
+  function renderIOSReport() {
+    const b = $('#ios-report');
+    const ios = root.WoomarsIOS;
+    if (!b) return;
+    b.hidden = !(ios && ios.isIOS);
+    if (!b.hidden) b.textContent = ios.reportLabel();
+  }
+
   // 고정 문구와 미리 채워 둔 부분을 지금 언어로 다시 그린다.
   function relocalize() {
     I18n.apply(document);
     renderLangPick();
+    renderIOSReport();
     fillRules();
     fillColorGrid();
     emit('lang-change', I18n.lang);
@@ -472,6 +483,9 @@
   function bind() {
     I18n.apply(document);
     renderLangPick();
+    renderIOSReport();
+    root.addEventListener('woomars-ios-ready', renderIOSReport);
+    $('#ios-report').addEventListener('click', () => { if (root.WoomarsIOS) root.WoomarsIOS.report(); });
     $('#lang-pick').addEventListener('click', (e) => {
       const b = e.target.closest('[data-lang]');
       if (b) I18n.setLang(b.dataset.lang);

@@ -113,6 +113,12 @@ h3 { font-size: 18px; margin-top: 8px; }
 .lang-pick button svg { display: block; width: 22px; height: 15px; border-radius: 2px; box-shadow: 0 0 0 1px rgba(0, 0, 0, .18); }
 .lang-pick button[aria-pressed="true"] { opacity: 1; background: rgba(0, 0, 0, .25); box-shadow: inset 0 0 0 1px var(--accent); }
 .lang-pick button:focus-visible { outline: 2px solid var(--accent); }
+/* 아이폰일 때만 보이는 작은 「문제 신고」 버튼(시작 화면 맨 아래) */
+.ios-report {
+  align-self: center; min-height: 32px; margin-top: 4px; padding: 0 12px; border: 1px solid rgba(255, 255, 255, .15);
+  border-radius: 8px; background: rgba(0, 0, 0, .25); color: var(--muted); font-size: 12px; font-weight: 600; cursor: pointer;
+}
+.ios-report[hidden] { display: none; }
 .logo { text-align: center; padding: 32px 0 12px; }
 .logo-bomb { width: 88px; height: 88px; color: var(--accent); filter: drop-shadow(0 4px 0 rgba(0, 0, 0, .35)); }
 .logo h1 { font-size: 64px; color: var(--accent); letter-spacing: 4px; text-shadow: 0 4px 0 rgba(0, 0, 0, .35); }

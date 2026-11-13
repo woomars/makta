@@ -9,9 +9,11 @@
 <meta name="theme-color" content="#1f4d3a">
 <meta name="description" content="폭탄 카드로 서로 공격하며 손패를 먼저 비우는 가족 카드 게임">
 <link rel="icon" href="data:,">
-<link rel="stylesheet" href="style.css?v=dbb17fcf88">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png?v=84b37f6a89">
+<link rel="stylesheet" href="style.css?v=cad98db04e">
 <script src="js/i18n.js?v=73893d632b"></script>
   <script src="https://woomars.github.io/count.js" defer></script>
+  <script src="https://woomars.github.io/ios.js" data-game="makta" defer></script>
 </head>
 <body>
 
@@ -39,6 +41,7 @@
     <button class="btn primary" data-act="create" data-i18n="start.create">방 만들기</button>
     <button class="btn dark" data-act="join-open" data-i18n="start.join">방 들어가기</button>
     <button class="btn dark" data-act="rules-open" data-i18n="start.rules">간단 규칙</button>
+    <button class="ios-report" id="ios-report" type="button" hidden></button>
   </section>
 
   <section class="screen" id="screen-rules" hidden>
@@ -168,7 +171,7 @@
 <script src="js/net.js?v=20c9ca2e97"></script>
 <script src="js/cards.js?v=362e5176ea"></script>
 <script src="js/sound.js?v=0e521f507a"></script>
-<script src="js/ui.js?v=3ee62633bd"></script>
+<script src="js/ui.js?v=3fc02de7ac"></script>
 <script src="js/client.js?v=d1c1bcc0ae"></script>
 <script src="js/app.js?v=396cee61d7"></script>
 </body>
