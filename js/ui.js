@@ -6,44 +6,36 @@
   const SCREENS = ['start', 'rules', 'join', 'lobby', 'game', 'result'];
   const handlers = {};
   const emit = (event, arg) => (handlers[event] || []).forEach((fn) => fn(arg));
-  const { Cards } = root;
+  const { Cards, I18n } = root;
+  const t = (key, params) => I18n.t(key, params);
+  const { josa, ro } = I18n;
 
-  const RULES = [
-    ['stack', '폭격·융단폭격 쌓기', '받을 장수를 같은 공격 카드로 다음 사람에게 넘겨요'],
-    ['drawUntil', '낼 때까지 뽑기', '낼 수 있는 카드가 나올 때까지 뽑아요'],
-    ['sevenZero', '7과 0', '7은 고른 사람과 손패 교환, 0은 모두 손패를 옆으로 넘겨요'],
-    ['jumpIn', '끼어들기', '맨 위와 똑같은 카드가 있으면 차례가 아니어도 내요'],
-    ['multi', '같은 숫자 여러 장 내기', '같은 숫자를 한 번에 여러 장 내요'],
-    ['challenge', '융단폭격 의심하기', '융단폭격을 받으면 낼 수 있는 색이 있었는지 의심해요'],
-    ['turnTimer', '차례 시간 제한 20초', '20초가 지나면 자동으로 한 장 뽑아요'],
-    ['score', '점수 모드 (500점)', '남은 카드 점수를 모아 먼저 500점이면 우승'],
-  ];
+  // 규칙 이름과 설명은 사전의 'rule.<키>', 'rule.<키>.desc'
+  const RULES = ['stack', 'drawUntil', 'sevenZero', 'jumpIn', 'multi', 'challenge', 'turnTimer', 'score'];
   const ATTACKS = [
-    [{ kind: 'skip', color: 'b' }, '다음 사람 한 번 쉬기'],
-    [{ kind: 'rev', color: 'y' }, '방향 바꾸기'],
-    [{ kind: 'draw2', color: 'r' }, '다음 사람 2장'],
-    [{ kind: 'wild', color: null }, '색 바꾸기'],
-    [{ kind: 'wild4', color: null }, '색 바꾸기 + 다음 사람 4장'],
+    { kind: 'skip', color: 'b' },
+    { kind: 'rev', color: 'y' },
+    { kind: 'draw2', color: 'r' },
+    { kind: 'wild', color: null },
+    { kind: 'wild4', color: null },
   ];
-  const BOT_TAG = { low: '하수', mid: '중수', high: '고수' };
 
   const esc = (s) => String(s).replace(/[&<>"']/g, (ch) => `&#${ch.charCodeAt(0)};`);
 
-  // 받침이 있으면 앞의 조사, 없으면 뒤의 조사. 예: josa('아빠', '이', '가') → '아빠가'
-  function hasBatchim(word) {
-    const last = String(word).charCodeAt(String(word).length - 1);
-    if (last >= 0xac00 && last <= 0xd7a3) return (last - 0xac00) % 28 !== 0;
-    if (last >= 0x30 && last <= 0x39) return '013678'.includes(String.fromCharCode(last));
-    return false;
-  }
-  function josa(word, withB, withoutB) {
-    return word + (hasBatchim(word) ? withB : withoutB);
-  }
-  // '으로/로'는 ㄹ 받침도 '로'를 쓴다.
-  function ro(word) {
-    const last = String(word).charCodeAt(String(word).length - 1);
-    const jong = last >= 0xac00 && last <= 0xd7a3 ? (last - 0xac00) % 28 : 0;
-    return word + (jong && jong !== 8 ? '으로' : '로');
+  // 방장이 정한 이름을 지금 언어로 보여 준다. 봇 이름은 방장 쪽에서 '고수1'처럼 한국어로 만들어지므로
+  // 등급 부분만 바꿔 끼운다. 사람이 고른 이름은 그대로 둔다.
+  function displayName(p) {
+    if (!p) return '?';
+    if (p.bot) {
+      for (const level of ['low', 'mid', 'high']) {
+        const ko = I18n.tr('ko', 'bot.' + level);
+        const rest = p.name.startsWith(ko) ? p.name.slice(ko.length) : null;
+        if (rest !== null && /^\d+$/.test(rest)) return t('bot.name', { label: t('bot.' + level), n: rest });
+      }
+    } else if (p.name === I18n.tr('ko', 'noName')) {
+      return t('noName');
+    }
+    return p.name;
   }
 
   function setRole(view) {
@@ -74,25 +66,26 @@
     const isHost = view.me === view.hostId;
     const rows = view.players.map((p) => {
       let right;
-      if (p.bot) right = `<span class="tag-bot">봇</span>${isHost ? `<button class="x" data-act="remove-bot" data-id="${esc(p.id)}" aria-label="${esc(p.name)} 빼기">✕</button>` : ''}`;
-      else right = `<small>${p.id === view.hostId ? '방장' : '준비됨'}</small>`;
-      return `<li><span>${esc(p.name)}${p.id === view.me ? ' (나)' : ''}</span>${right}</li>`;
+      const name = displayName(p);
+      if (p.bot) right = `<span class="tag-bot">${esc(t('bot'))}</span>${isHost ? `<button class="x" data-act="remove-bot" data-id="${esc(p.id)}" aria-label="${esc(t('lobby.remove', { name }))}">✕</button>` : ''}`;
+      else right = `<small>${esc(t(p.id === view.hostId ? 'lobby.host' : 'lobby.ready'))}</small>`;
+      return `<li><span>${esc(name)}${p.id === view.me ? esc(t('lobby.me')) : ''}</span>${right}</li>`;
     });
-    for (let i = view.players.length; i < 10; i++) rows.push('<li class="empty">빈자리</li>');
+    for (let i = view.players.length; i < 10; i++) rows.push(`<li class="empty">${esc(t('lobby.empty'))}</li>`);
     $('#lobby-players').innerHTML = rows.join('');
     const n = view.players.length;
     const start = $('#start-btn');
-    start.textContent = `시작하기 (${n}명)`;
+    start.textContent = t('lobby.startN', { n });
     start.disabled = n < 2;
     $('#bot-add').disabled = n >= 10;
 
-    const on = RULES.filter(([k]) => view.rules[k]);
-    $('#rule-summary').textContent = `변형 규칙 (${on.length}개 켜짐)`;
-    $('#rule-switches').innerHTML = RULES.map(([k, title, desc]) => `<label class="switch"><span class="txt"><b>${title}</b><small>${desc}</small></span>`
+    const on = RULES.filter((k) => view.rules[k]);
+    $('#rule-summary').textContent = t('lobby.rulesOn', { n: on.length });
+    $('#rule-switches').innerHTML = RULES.map((k) => `<label class="switch"><span class="txt"><b>${esc(t('rule.' + k))}</b><small>${esc(t('rule.' + k + '.desc'))}</small></span>`
       + `<input type="checkbox" data-rule="${k}"${view.rules[k] ? ' checked' : ''}><span class="sw"></span></label>`).join('');
     $('#guest-rules').innerHTML = on.length
-      ? on.map(([, title]) => `<li>${title}</li>`).join('')
-      : '<li>변형 규칙 없이 기본 규칙으로 해요</li>';
+      ? on.map((k) => `<li>${esc(t('rule.' + k))}</li>`).join('')
+      : `<li>${esc(t('lobby.noRules'))}</li>`;
   }
 
   // ---- 결과 ----
@@ -100,21 +93,21 @@
   function renderResult(view) {
     setRole(view);
     const r = view.result;
-    const nameOf = (id) => (view.players.find((p) => p.id === id) || { name: '?' }).name;
+    const nameOf = (id) => displayName(view.players.find((p) => p.id === id));
     const over = view.phase === 'matchover';
     const winner = over && view.rules.score ? view.matchWinnerId : r && r.winnerId;
-    $('#result-title').textContent = winner ? `${josa(nameOf(winner), '이', '가')} ${over ? '이겼다!' : '막타!'}` : '결과';
+    $('#result-title').textContent = winner ? t(over ? 'result.matchWin' : 'result.roundWin', { name: nameOf(winner) }) : t('result.title');
     $('#ranking').innerHTML = r ? r.ranking.map((row, i) => {
-      const right = view.rules.score
-        ? (row.id === r.winnerId ? `+${r.gained}점` : `${row.count}장 · ${row.points}점`)
-        : `${row.count}장`;
+      const right = esc(view.rules.score
+        ? (row.id === r.winnerId ? t('result.gained', { n: r.gained }) : t('result.left', { count: row.count, points: row.points }))
+        : t('cards', { n: row.count }));
       return `<li class="${row.id === r.winnerId ? 'win' : ''}"><span class="rank">${i + 1}</span>${esc(nameOf(row.id))}<small>${right}</small></li>`;
     }).join('') : '';
     const totals = $('#totals');
     totals.hidden = !view.rules.score;
     if (view.rules.score) {
       const sorted = view.players.slice().sort((a, b) => b.score - a.score);
-      totals.innerHTML = `<h3>누적 점수 (500점 우승)</h3>${sorted.map((p) => `<div><span>${esc(p.name)}</span><b>${p.score}점</b></div>`).join('')}`;
+      totals.innerHTML = `<h3>${esc(t('result.totals'))}</h3>${sorted.map((p) => `<div><span>${esc(displayName(p))}</span><b>${esc(t('pts', { n: p.score }))}</b></div>`).join('')}`;
     }
     $('#next-btn').hidden = over;
     $('#again-btn').hidden = !over;
@@ -134,33 +127,34 @@
   let peekTimer = null;
   let fxTimer = null;
 
-  const nameOf = (view, id) => (view.players.find((p) => p.id === id) || { name: '?' }).name;
+  const nameOf = (view, id) => displayName(view.players.find((p) => p.id === id));
   const colorName = (c) => (Cards.COLOR[c] ? Cards.COLOR[c].name : '');
 
-  function logLine(view, e) {
-    const n = (id) => esc(nameOf(view, id));
-    const subj = (id) => esc(josa(nameOf(view, id), '이', '가'));
+  // 기록 한 줄(글자만). 넣을 때 통째로 esc 한다.
+  function logText(view, e) {
+    const n = (id) => nameOf(view, id);
     switch (e.type) {
       case 'play': {
         const last = e.cards[e.cards.length - 1];
-        const what = e.cards.length > 1 ? `${Cards.spoken(e.cards[0])} 외 ${e.cards.length - 1}장` : Cards.spoken(last);
-        return `${subj(e.by)} ${esc(josa(what, '을', '를'))} 냈어요`;
+        const what = e.cards.length > 1 ? t('log.playMany', { card: Cards.spoken(e.cards[0]), n: e.cards.length - 1 }) : Cards.spoken(last);
+        return t('log.play', { name: n(e.by), what });
       }
-      case 'jump': return `${n(e.by)} 끼어들기!`;
-      case 'draw': return e.count ? `${subj(e.by)} ${e.count}장 뽑았어요` : `${n(e.by)} 뽑을 카드가 없어요`;
-      case 'attack': return `${n(e.by)} → ${n(e.target)} +${e.count} ${e.kind === 'wild4' ? '융단폭격' : '폭격'}!`;
-      case 'skip': return `${n(e.target)} 기절!`;
-      case 'reverse': return '반사! 방향이 바뀌었어요';
-      case 'color': return `${subj(e.by)} ${esc(ro(colorName(e.color)))} 조준!`;
-      case 'swap': return `${n(e.a)} ⇄ ${n(e.b)} 손패 교환`;
-      case 'rotate': return '모두 손패를 넘겼어요';
-      case 'call': return `${n(e.by)} 막타!`;
-      case 'caught': return `${subj(e.by)} ${esc(josa(nameOf(view, e.target), '을', '를'))} 잡았다! +2`;
-      case 'challenge': return e.success ? `의심 성공! ${n(e.target)} +4` : `의심 실패! ${n(e.by)} +6`;
-      case 'win': return `${n(e.by)} 막타! 승리`;
+      case 'jump': return t('log.jump', { name: n(e.by) });
+      case 'draw': return e.count ? t('log.draw', { name: n(e.by), n: e.count }) : t('log.drawNone', { name: n(e.by) });
+      case 'attack': return t('log.attack', { by: n(e.by), target: n(e.target), n: e.count, kind: Cards.NAME[e.kind === 'wild4' ? 'wild4' : 'draw2'] });
+      case 'skip': return t('log.skip', { name: n(e.target) });
+      case 'reverse': return t('log.reverse');
+      case 'color': return t('log.color', { name: n(e.by), color: colorName(e.color) });
+      case 'swap': return t('log.swap', { a: n(e.a), b: n(e.b) });
+      case 'rotate': return t('log.rotate');
+      case 'call': return t('log.call', { name: n(e.by) });
+      case 'caught': return t('log.caught', { by: n(e.by), target: n(e.target) });
+      case 'challenge': return e.success ? t('log.challengeOk', { name: n(e.target) }) : t('log.challengeFail', { name: n(e.by) });
+      case 'win': return t('log.win', { name: n(e.by) });
       default: return '';
     }
   }
+  const logLine = (view, e) => esc(logText(view, e));
 
   function setRoom(code) {
     roomCode = code || '';
@@ -169,16 +163,16 @@
   function chipHtml(view, p, hit) {
     const me = p.id === view.me;
     const badges = [];
-    if (p.count === 1 && p.called) badges.push('<span class="badge call">막타!</span>');
-    if (p.catchable) badges.push('<span class="badge warn">막타 안 외침</span>');
+    if (p.count === 1 && p.called) badges.push(`<span class="badge call">${esc(t('game.call'))}</span>`);
+    if (p.catchable) badges.push(`<span class="badge warn">${esc(t('game.notCalled'))}</span>`);
     if (hit !== undefined) badges.push(`<span class="badge dmg">+${hit}</span>`);
-    const sub = p.proxy ? '<small class="proxy">봇이 대신 하는 중</small>' : p.bot ? '<small class="bot">봇</small>' : '';
+    const sub = p.proxy ? `<small class="proxy">${esc(t('game.proxy'))}</small>` : p.bot ? `<small class="bot">${esc(t('bot'))}</small>` : '';
     const pickable = view.await && view.await.kind === 'swap' && view.await.playerId === view.me && !me;
     const cls = ['chip', p.isTurn ? 'turn' : '', me ? 'me' : '', hit !== undefined ? 'hit' : '', pickable ? 'pickable' : ''].filter(Boolean).join(' ');
     const boom = hit !== undefined ? Cards.icon('i-boom', 'burst') : '';
     const tag = pickable ? 'button' : 'div';
     return `<${tag} class="${cls}" data-id="${esc(p.id)}"${pickable ? ` data-swap="${esc(p.id)}" type="button"` : ''}>`
-      + `<b>${me ? '나' : esc(p.name)}</b><span class="n">${p.count}장</span>${sub}${badges.join('')}${boom}</${tag}>`;
+      + `<b>${esc(me ? t('game.me') : displayName(p))}</b><span class="n">${esc(t('cards', { n: p.count }))}</span>${sub}${badges.join('')}${boom}</${tag}>`;
   }
 
   // 나부터 진행 방향 순서로 놓는다. 차례가 바뀔 때만 지금 차례가 보이게 민다(골라야 할 때 밀어 둔 자리를 지킨다).
@@ -274,19 +268,19 @@
 
   function hazardState(view) {
     const me = view.players.find((p) => p.id === view.me);
-    if (!me || (view.phase !== 'playing' && view.phase !== 'judging')) return { label: '막타!', act: null };
+    if (!me || (view.phase !== 'playing' && view.phase !== 'judging')) return { label: t('game.call'), act: null };
     const n = view.hand.length;
-    if ((n === 2 && view.turnId === view.me && !view.await && !me.called) || (n === 1 && !me.called)) return { label: '막타!', act: 'call' };
-    if (view.players.some((p) => p.id !== view.me && p.catchable)) return { label: '잡았다!', act: 'catch' };
-    return { label: '막타!', act: null };
+    if ((n === 2 && view.turnId === view.me && !view.await && !me.called) || (n === 1 && !me.called)) return { label: t('game.call'), act: 'call' };
+    if (view.players.some((p) => p.id !== view.me && p.catchable)) return { label: t('game.catch'), act: 'catch' };
+    return { label: t('game.call'), act: null };
   }
 
   function renderButtons(view) {
     const draw = $('#draw-btn');
     const mine = myTurn(view);
-    if (view.pending && mine) { draw.textContent = `받기 (${view.pending.count}장)`; draw.dataset.do = 'draw'; }
-    else if (view.drewId !== null && mine) { draw.textContent = '그만 (카드 갖기)'; draw.dataset.do = 'pass'; }
-    else { draw.textContent = '뽑기'; draw.dataset.do = 'draw'; }
+    if (view.pending && mine) { draw.textContent = t('game.take', { n: view.pending.count }); draw.dataset.do = 'draw'; }
+    else if (view.drewId !== null && mine) { draw.textContent = t('game.keep'); draw.dataset.do = 'pass'; }
+    else { draw.textContent = t('game.draw'); draw.dataset.do = 'draw'; }
     draw.disabled = !mine;
     $('#challenge-btn').hidden = !(view.canChallenge && mine);
     const h = hazardState(view);
@@ -303,7 +297,7 @@
     $('#swap-hint').hidden = !(mineAwait && view.await.kind === 'swap');
     if (view.peek) {
       const ch = view.log.find((e) => e.type === 'challenge');
-      $('#peek-title').textContent = ch ? `${nameOf(view, ch.target)}의 손패` : '상대 손패';
+      $('#peek-title').textContent = ch ? t('game.peekOf', { name: nameOf(view, ch.target) }) : t('game.peek');
       $('#peek-cards').replaceChildren(...view.peek.map((c) => Cards.face(c)));
       $('#peek').hidden = false;
       clearTimeout(peekTimer);
@@ -318,7 +312,7 @@
     const fuse = $('#fuse');
     if (v.phase === 'judging' || v.turnMsLeft === null) { sec.textContent = ''; fuse.hidden = true; return; }
     const ms = Math.max(0, v.turnMsLeft - (performance.now() - gotAt));
-    sec.textContent = `${Math.ceil(ms / 1000)}초`;
+    sec.textContent = t('game.sec', { n: Math.ceil(ms / 1000) });
     fuse.hidden = false;
     fuse.firstElementChild.style.width = `${(ms / 20000) * 100}%`;
   }
@@ -346,25 +340,30 @@
     for (const e of fresh) if (e.type === 'attack' || e.type === 'caught') hits[e.target] = e.type === 'caught' ? 2 : e.count;
     if (fresh.some((e) => e.type === 'win')) playFx('win');
 
-    $('#g-info').textContent = `${roomCode ? `방 ${roomCode} · ` : ''}${view.dir === 1 ? '시계 방향' : '반대 방향'}`;
+    $('#g-info').textContent = `${roomCode ? t('game.room', { code: roomCode }) : ''}${t(view.dir === 1 ? 'game.cw' : 'game.ccw')}`;
     renderRibbon(view, hits);
-    const turnName = view.phase === 'judging' ? '끼어들기 판정 중' : view.turnId === view.me ? '나' : nameOf(view, view.turnId);
+    const turnName = view.phase === 'judging' ? t('game.judging') : view.turnId === view.me ? t('game.me') : nameOf(view, view.turnId);
     $('#now-name').textContent = turnName;
     $('#screen-game').classList.toggle('my-turn', myTurn(view));
     $('#log').innerHTML = view.log.map((e) => `<div>${logLine(view, e)}</div>`).join('');
 
     $('#pile').replaceChildren(Cards.back({ big: true }));
-    $('#pile').insertAdjacentHTML('beforeend', `<span class="pile-n">${view.drawCount}장</span>`);
+    $('#pile').insertAdjacentHTML('beforeend', `<span class="pile-n">${esc(t('cards', { n: view.drawCount }))}</span>`);
     $('#top-slot').replaceChildren(...(view.top ? [Cards.face(view.top, { big: true })] : []));
     const ci = Cards.COLOR[view.color];
     $('#color-info').innerHTML = ci
-      ? `지금 색: <b>${ci.name}</b> <svg style="color:var(--c-${view.color})" aria-hidden="true"><use href="#${ci.icon}"/></svg> ${ci.bomb}`
-        + (view.pending ? ` · <b class="owe">받을 카드 ${view.pending.count}장</b>` : '')
+      ? `${esc(t('game.colorNow'))} <b>${esc(ci.name)}</b> <svg style="color:var(--c-${view.color})" aria-hidden="true"><use href="#${ci.icon}"/></svg> ${esc(ci.bomb)}`
+        + (view.pending ? ` · <b class="owe">${esc(t('game.owe', { n: view.pending.count }))}</b>` : '')
       : '';
     renderHand(view);
     renderButtons(view);
     renderOverlays(view);
     drawClock();
+  }
+
+  function fillColorGrid() {
+    $('#color-grid').innerHTML = Object.entries(Cards.COLOR).map(([id, c]) => `<button class="cpick c-${id}" data-color="${id}" type="button">`
+      + `<svg aria-hidden="true"><use href="#${c.icon}"/></svg><b>${esc(c.name)}</b><small>${esc(c.bomb)}</small></button>`).join('');
   }
 
   function bindGame() {
@@ -384,8 +383,7 @@
       const chip = e.target.closest('[data-swap]');
       if (chip) emit('swap', chip.dataset.swap);
     });
-    $('#color-grid').innerHTML = Object.entries(Cards.COLOR).map(([id, c]) => `<button class="cpick c-${id}" data-color="${id}" type="button">`
-      + `<svg aria-hidden="true"><use href="#${c.icon}"/></svg><b>${c.name}</b><small>${c.bomb}</small></button>`).join('');
+    fillColorGrid();
     $('#color-grid').addEventListener('click', (e) => {
       const b = e.target.closest('[data-color]');
       if (b) { $('#color-pick').hidden = true; emit('color', b.dataset.color); }
@@ -438,19 +436,47 @@
 
   function fillRules() {
     $('#attack-list').innerHTML = '';
-    for (const [card, text] of ATTACKS) {
+    for (const card of ATTACKS) {
       const li = document.createElement('li');
       li.appendChild(Cards.face({ id: -1, value: null, ...card }));
-      li.insertAdjacentHTML('beforeend', `<span><b>${Cards.NAME[card.kind]}</b> · ${text}</span>`);
+      li.insertAdjacentHTML('beforeend', `<span><b>${esc(Cards.NAME[card.kind])}</b> · ${esc(t('rules.' + card.kind))}</span>`);
       $('#attack-list').appendChild(li);
     }
     $('#bomb-list').innerHTML = Object.values(Cards.COLOR).map((c, i) => {
       const id = Object.keys(Cards.COLOR)[i];
-      return `<li><svg style="color:var(--c-${id})" aria-hidden="true"><use href="#${c.icon}"/></svg><b>${c.name}</b> ${c.bomb}</li>`;
+      return `<li><svg style="color:var(--c-${id})" aria-hidden="true"><use href="#${c.icon}"/></svg><b>${esc(c.name)}</b> ${esc(c.bomb)}</li>`;
     }).join('');
   }
 
+  // 시작 화면 구석의 언어 고르기: 작은 국기 버튼 셋(한국 · 미국 · 일본). 이름은 aria-label·title 로.
+  // 국기는 woomars-hub/flags.js 의 LANG_FLAGS 를 그대로 복사한 것(모든 게임이 같은 그림).
+  const LANG_FLAGS = {
+    "ko": "<svg viewBox=\"-36 -24 72 48\" aria-hidden=\"true\"><rect x=\"-36\" y=\"-24\" width=\"72\" height=\"48\" fill=\"#fff\"/><g transform=\"rotate(-56.31)\"><path d=\"M-6-25H6M-6-22H6M-6-19H6M-6 19H6M-6 22H6M-6 25H6\" stroke=\"#000\" stroke-width=\"2\"/><path d=\"M0 17v10\" stroke=\"#fff\"/><circle r=\"12\" fill=\"#cd2e3a\"/><path d=\"M0-12A6 6 0 0 0 0 0A6 6 0 0 1 0 12A12 12 0 0 1 0-12Z\" fill=\"#0047a0\"/></g><g transform=\"rotate(-123.69)\"><path d=\"M-6-25H6M-6-22H6M-6-19H6M-6 19H6M-6 22H6M-6 25H6\" stroke=\"#000\" stroke-width=\"2\"/><path d=\"M0-23.5v3M0 17v3.5M0 23.5v3\" stroke=\"#fff\"/></g></svg>",
+    "en": "<svg viewBox=\"0 0 30 20\" aria-hidden=\"true\"><rect width=\"30\" height=\"20\" fill=\"#b22234\"/><path d=\"M0 2.31H30M0 5.38H30M0 8.46H30M0 11.54H30M0 14.62H30M0 17.69H30\" stroke=\"#fff\" stroke-width=\"1.54\"/><rect width=\"12\" height=\"10.77\" fill=\"#3c3b6e\"/><g fill=\"#fff\"><circle cx=\"2\" cy=\"1.8\" r=\".55\"/><circle cx=\"6\" cy=\"1.8\" r=\".55\"/><circle cx=\"10\" cy=\"1.8\" r=\".55\"/><circle cx=\"4\" cy=\"4.1\" r=\".55\"/><circle cx=\"8\" cy=\"4.1\" r=\".55\"/><circle cx=\"2\" cy=\"6.4\" r=\".55\"/><circle cx=\"6\" cy=\"6.4\" r=\".55\"/><circle cx=\"10\" cy=\"6.4\" r=\".55\"/><circle cx=\"4\" cy=\"8.7\" r=\".55\"/><circle cx=\"8\" cy=\"8.7\" r=\".55\"/></g></svg>",
+    "ja": "<svg viewBox=\"0 0 30 20\" aria-hidden=\"true\"><rect width=\"30\" height=\"20\" fill=\"#fff\"/><circle cx=\"15\" cy=\"10\" r=\"6\" fill=\"#bc002d\"/></svg>"
+  };
+  function renderLangPick() {
+    $('#lang-pick').innerHTML = I18n.LANGS.map((l) => `<button type="button" lang="${l}" data-lang="${l}" aria-pressed="${l === I18n.lang}"`
+      + ` aria-label="${esc(I18n.LANG_NAMES[l])}" title="${esc(I18n.LANG_NAMES[l])}">${LANG_FLAGS[l]}</button>`).join('');
+  }
+
+  // 고정 문구와 미리 채워 둔 부분을 지금 언어로 다시 그린다.
+  function relocalize() {
+    I18n.apply(document);
+    renderLangPick();
+    fillRules();
+    fillColorGrid();
+    emit('lang-change', I18n.lang);
+  }
+
   function bind() {
+    I18n.apply(document);
+    renderLangPick();
+    $('#lang-pick').addEventListener('click', (e) => {
+      const b = e.target.closest('[data-lang]');
+      if (b) I18n.setLang(b.dataset.lang);
+    });
+    I18n.onChange(relocalize);
     document.addEventListener('click', (e) => {
       const btn = e.target.closest('[data-act]');
       if (!btn || btn.disabled) return;
@@ -491,7 +517,7 @@
 
   root.UI = {
     show, renderLobby, renderGame, renderResult, setRoom, toast, error, on, setMessage, clearCode,
-    josa, ro, esc, emit,
+    josa, ro, esc, emit, displayName,
     focusCode: () => $('#code').focus(),
     setName: (name) => { $('#name').value = name; },
     getName: () => $('#name').value,

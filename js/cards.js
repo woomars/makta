@@ -2,13 +2,22 @@
 (function (root) {
   'use strict';
 
-  const COLOR = {
-    r: { name: '빨강', bomb: '펑', icon: 'i-boom' },
-    y: { name: '노랑', bomb: '둥근 폭탄', icon: 'i-bomb' },
-    g: { name: '초록', bomb: '수류탄', icon: 'i-grenade' },
-    b: { name: '파랑', bomb: '미사일', icon: 'i-missile' },
-  };
-  const NAME = { skip: '기절', rev: '반사', draw2: '폭격', wild: '조준', wild4: '융단폭격' };
+  const { I18n } = root;
+  const t = (key, params) => I18n.t(key, params);
+
+  // 이름(name)과 폭탄 이름(bomb)은 읽을 때마다 지금 언어로 바뀐다.
+  const COLOR = {};
+  for (const [id, icon] of [['r', 'i-boom'], ['y', 'i-bomb'], ['g', 'i-grenade'], ['b', 'i-missile']]) {
+    COLOR[id] = {
+      icon,
+      get name() { return t('color.' + id); },
+      get bomb() { return t('bomb.' + id); },
+    };
+  }
+  const NAME = {};
+  for (const kind of ['skip', 'rev', 'draw2', 'wild', 'wild4']) {
+    Object.defineProperty(NAME, kind, { enumerable: true, get: () => t('kind.' + kind) });
+  }
   const LABEL = { skip: '⊘', rev: '⇄', draw2: '+2', wild: '★', wild4: '+4' };
   const WILD_ICON = { wild: 'i-missile', wild4: 'i-boom' };
 
@@ -20,7 +29,7 @@
   function spoken(c) {
     if (isWild(c)) return NAME[c.kind];
     const color = COLOR[c.color].name;
-    return c.kind === 'num' ? `${color} ${c.value}` : `${color} ${NAME[c.kind]}`;
+    return c.kind === 'num' ? t('card.num', { color, value: c.value }) : t('card.action', { color, name: NAME[c.kind] });
   }
 
   function face(card, { big = false } = {}) {

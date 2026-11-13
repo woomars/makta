@@ -2,7 +2,8 @@
 (function (root) {
   'use strict';
 
-  const { UI, Net, Client, HostSession, Sound } = root;
+  const { UI, Net, Client, HostSession, Sound, I18n } = root;
+  const t = (key, params) => I18n.t(key, params);
   const NAME_KEY = 'makta.name';
   const tokenKey = (code) => 'makta.token.' + code;
   const RETRY_MS = 3000;
@@ -10,14 +11,9 @@
   const GAME_PHASES = new Set(['playing', 'judging']);
   const RESULT_PHASES = new Set(['roundover', 'matchover']);
 
-  const ERRORS = {
-    'not-found': '방을 찾을 수 없어요. 번호를 확인해 주세요',
-    timeout: '연결하지 못했어요. 잠시 뒤 다시 시도해 주세요',
-    'no-internet': '인터넷 연결을 확인해 주세요',
-    full: '방이 가득 찼어요',
-    started: '이미 게임이 시작됐어요',
-    closed: '방장 연결이 끊겨 방이 닫혔어요',
-  };
+  // 연결 실패 이유별 안내. 문구는 사전의 'err.<이유>'
+  const ERROR_CODES = new Set(['not-found', 'timeout', 'no-internet', 'full', 'started', 'closed']);
+  const errorText = (code) => t('err.' + (ERROR_CODES.has(code) ? code : 'no-internet'));
 
   function storage(kind) {
     return {
@@ -46,7 +42,7 @@
     const name = UI.getName().trim();
     if (name.length >= 1 && name.length <= 8) return name;
     UI.show('start');
-    UI.setMessage('start', '이름을 1~8자로 적어 주세요');
+    UI.setMessage('start', t('start.nameInvalid'));
     return null;
   }
 
@@ -93,7 +89,7 @@
     const name = validName();
     if (!name || busy) return;
     busy = true;
-    UI.setMessage('start', '방을 만드는 중…');
+    UI.setMessage('start', t('start.creating'));
     try {
       room = await Net.createRoom({
         onConnect: (id) => host && host.handleConnect(id),
@@ -104,7 +100,7 @@
     } catch (e) {
       busy = false;
       UI.setMessage('start', '');
-      UI.error(ERRORS[e.code] || ERRORS['no-internet'], { retry: createRoom });
+      UI.error(errorText(e.code), { retry: createRoom });
       return;
     }
     busy = false;
@@ -139,7 +135,7 @@
   function guestHandlers() {
     return {
       onMessage: (msg) => client && client.receive(msg),
-      onClose: (reason) => (reason === 'closed' ? endRoom(ERRORS.closed) : startReconnect()),
+      onClose: (reason) => (reason === 'closed' ? endRoom(errorText('closed')) : startReconnect()),
     };
   }
 
@@ -152,15 +148,15 @@
     if (!name || busy) return;
     busy = true;
     pendingRoom = null;
-    UI.setMessage('join', '연결하는 중…');
-    UI.setMessage('start', '연결하는 중…');
+    UI.setMessage('join', t('start.connecting'));
+    UI.setMessage('start', t('start.connecting'));
     try {
       conn = await Net.joinRoom(roomCode, guestHandlers());
     } catch (e) {
       busy = false;
       UI.setMessage('join', '');
       UI.setMessage('start', '');
-      UI.error(ERRORS[e.code] || ERRORS['no-internet'], e.code === 'no-internet' ? { retry: () => joinRoom(roomCode) } : {});
+      UI.error(errorText(e.code), e.code === 'no-internet' ? { retry: () => joinRoom(roomCode) } : {});
       return;
     }
     busy = false;
@@ -172,7 +168,7 @@
       send: (msg) => conn && conn.send(msg),
       onView,
       onWelcome: (w) => session.set(tokenKey(code), w.token),
-      onReject: (reason) => endRoom(ERRORS[reason]),
+      onReject: (reason) => endRoom(ERROR_CODES.has(reason) ? errorText(reason) : undefined),
     });
     history.replaceState(null, '', `${location.pathname}?room=${roomCode}`);
     sendHello();
@@ -184,7 +180,7 @@
     conn = null;
     if (reconnect || !mode) return;
     reconnect = { deadline: Date.now() + RECONNECT_MS, timer: null, trying: false };
-    UI.toast('연결이 끊겼어요. 다시 연결하는 중…', RECONNECT_MS);
+    UI.toast(t('net.lost'), RECONNECT_MS);
     tryReconnect();
   }
 
@@ -198,12 +194,12 @@
       if (!reconnect || code !== myCode) return c.close();
       conn = c;
       reconnect = null;
-      UI.toast('다시 연결됐어요');
+      UI.toast(t('net.back'));
       sendHello();
     } catch (e) {
       if (!reconnect) return;
       reconnect.trying = false;
-      if (e.code === 'not-found' || Date.now() >= reconnect.deadline) endRoom(ERRORS.closed);
+      if (e.code === 'not-found' || Date.now() >= reconnect.deadline) endRoom(errorText('closed'));
       else reconnect.timer = setTimeout(tryReconnect, RETRY_MS);
     }
   }
@@ -213,10 +209,10 @@
   function leave() {
     if (mode === 'host') {
       const others = client && client.view ? client.view.players.some((p) => !p.bot && p.id !== client.view.me) : false;
-      if (others && !confirm('나가면 방이 닫혀요. 나갈까요?')) return;
+      if (others && !confirm(t('confirm.hostLeave'))) return;
       endRoom(null);
     } else if (mode === 'guest') {
-      if (inGame() && !confirm('게임에서 나갈까요? 내 자리는 봇이 이어서 해요')) return;
+      if (inGame() && !confirm(t('confirm.guestLeave'))) return;
       const c = conn;
       conn = null;
       if (c) {
@@ -253,7 +249,7 @@
   document.addEventListener('visibilitychange', () => {
     if (document.visibilityState === 'hidden') {
       // 방장이 화면을 벗어나면 방을 닫는다(설계: 방장 연결이 끊기면 방이 닫힘).
-      if (mode === 'host' && inGame()) endRoom('방장이 화면을 벗어나서 방이 닫혔어요');
+      if (mode === 'host' && inGame()) endRoom(t('err.hostLeft'));
       return;
     }
     if (mode) requestWake();
@@ -286,7 +282,7 @@
     UI.focusCode();
   });
   UI.on('join-submit', (value) => {
-    if (!/^\d{4}$/.test(value)) return UI.setMessage('join', '숫자 4자리를 입력해 주세요');
+    if (!/^\d{4}$/.test(value)) return UI.setMessage('join', t('join.needDigits'));
     joinRoom(value);
   });
   UI.on('back', () => UI.show('start'));
@@ -309,6 +305,10 @@
   UI.on('catch', () => client && client.catch());
   UI.on('jump', (id) => client && client.jump(id));
   UI.on('leave', leave);
+  // 시작 화면에서 언어를 바꾸면 그 화면의 안내 문구도 다시 적는다.
+  UI.on('lang-change', () => {
+    if (!mode && !busy) UI.setMessage('start', pendingRoom ? t('start.pending', { room: pendingRoom }) : '');
+  });
 
   // ---- 처음 열 때 ----
 
@@ -319,7 +319,7 @@
     if (UI.getName().trim()) joinRoom(roomParam);
     else {
       pendingRoom = roomParam;
-      UI.setMessage('start', `이름을 적고 「방 들어가기」를 누르면 ${roomParam}번 방에 들어가요`);
+      UI.setMessage('start', t('start.pending', { room: roomParam }));
     }
   }
 })(this);

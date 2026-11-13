@@ -2,12 +2,15 @@
 <html lang="ko">
 <head>
 <meta charset="utf-8">
+<meta name="apple-mobile-web-app-title" content="Last Hit">
+<meta name="application-name" content="Last Hit">
 <title>막타</title>
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
 <meta name="theme-color" content="#1f4d3a">
 <meta name="description" content="폭탄 카드로 서로 공격하며 손패를 먼저 비우는 가족 카드 게임">
 <link rel="icon" href="data:,">
-<link rel="stylesheet" href="style.css?v=09dd4f3e89">
+<link rel="stylesheet" href="style.css?v=dbb17fcf88">
+<script src="js/i18n.js?v=d99e4b2487"></script>
   <script src="https://woomars.github.io/count.js" defer></script>
 </head>
 <body>
@@ -24,83 +27,84 @@
 <main id="app">
 
   <section class="screen" id="screen-start">
+    <div class="lang-pick" id="lang-pick" role="group" data-i18n-aria="lang.label"></div>
     <div class="logo">
       <svg class="logo-bomb" aria-hidden="true"><use href="#i-bomb"/></svg>
-      <h1>막타</h1>
-      <p>폭탄 카드로 서로 공격하고, 손패를 먼저 비우세요</p>
+      <h1 data-i18n="app.name">막타</h1>
+      <p data-i18n="start.tagline">폭탄 카드로 서로 공격하고, 손패를 먼저 비우세요</p>
     </div>
-    <label class="lbl" for="name">내 이름</label>
-    <input class="inp" id="name" maxlength="8" autocomplete="nickname" placeholder="예: 아빠">
+    <label class="lbl" for="name" data-i18n="start.nameLabel">내 이름</label>
+    <input class="inp" id="name" maxlength="8" autocomplete="nickname" placeholder="예: 아빠" data-i18n-ph="start.namePh">
     <p class="msg" id="start-msg"></p>
-    <button class="btn primary" data-act="create">방 만들기</button>
-    <button class="btn dark" data-act="join-open">방 들어가기</button>
-    <button class="btn dark" data-act="rules-open">간단 규칙</button>
+    <button class="btn primary" data-act="create" data-i18n="start.create">방 만들기</button>
+    <button class="btn dark" data-act="join-open" data-i18n="start.join">방 들어가기</button>
+    <button class="btn dark" data-act="rules-open" data-i18n="start.rules">간단 규칙</button>
   </section>
 
   <section class="screen" id="screen-rules" hidden>
-    <h2>간단 규칙</h2>
+    <h2 data-i18n="start.rules">간단 규칙</h2>
     <ol class="rules">
-      <li>같은 색이나 같은 숫자를 내요.</li>
-      <li>낼 카드가 없으면 한 장 뽑아요.</li>
-      <li>한 장 남으면 「막타!」를 눌러요. 안 누르고 들키면 2장을 받아요.</li>
-      <li>먼저 다 내면 이겨요.</li>
+      <li data-i18n="rules.1">같은 색이나 같은 숫자를 내요.</li>
+      <li data-i18n="rules.2">낼 카드가 없으면 한 장 뽑아요.</li>
+      <li data-i18n="rules.3">한 장 남으면 「막타!」를 눌러요. 안 누르고 들키면 2장을 받아요.</li>
+      <li data-i18n="rules.4">먼저 다 내면 이겨요.</li>
     </ol>
-    <h3>공격 카드</h3>
+    <h3 data-i18n="rules.attacks">공격 카드</h3>
     <ul class="attack-list" id="attack-list"></ul>
-    <h3>색 = 폭탄</h3>
+    <h3 data-i18n="rules.bombs">색 = 폭탄</h3>
     <ul class="bomb-list" id="bomb-list"></ul>
-    <button class="btn dark" data-act="rules-close">닫기</button>
+    <button class="btn dark" data-act="rules-close" data-i18n="close">닫기</button>
   </section>
 
   <section class="screen" id="screen-join" hidden>
-    <h2>방 번호 입력</h2>
-    <p class="hint">방장 화면의 숫자 4자리</p>
+    <h2 data-i18n="join.title">방 번호 입력</h2>
+    <p class="hint" data-i18n="join.hint">방장 화면의 숫자 4자리</p>
     <div class="digits">
-      <input id="code" inputmode="numeric" pattern="[0-9]*" maxlength="4" autocomplete="off" aria-label="방 번호">
+      <input id="code" inputmode="numeric" pattern="[0-9]*" maxlength="4" autocomplete="off" aria-label="방 번호" data-i18n-aria="roomNo">
       <div class="boxes" aria-hidden="true"><span></span><span></span><span></span><span></span></div>
     </div>
     <p class="msg" id="join-msg"></p>
-    <button class="btn primary" data-act="join-submit">들어가기</button>
-    <button class="btn link" data-act="back">뒤로</button>
+    <button class="btn primary" data-act="join-submit" data-i18n="join.submit">들어가기</button>
+    <button class="btn link" data-act="back" data-i18n="back">뒤로</button>
   </section>
 
   <section class="screen" id="screen-lobby" hidden>
     <div class="host-only code-box">
-      <p class="muted">방 번호</p>
+      <p class="muted" data-i18n="roomNo">방 번호</p>
       <div class="room-code" id="lobby-code"></div>
       <div class="qr" id="qr"></div>
-      <p class="muted">카메라로 찍으면 바로 들어옵니다</p>
+      <p class="muted" data-i18n="lobby.scan">카메라로 찍으면 바로 들어옵니다</p>
     </div>
     <ul class="players" id="lobby-players"></ul>
     <div class="host-only">
-      <button class="btn dark" data-act="bot-menu" id="bot-add">봇 추가</button>
+      <button class="btn dark" data-act="bot-menu" id="bot-add" data-i18n="lobby.addBot">봇 추가</button>
       <div class="bot-menu" id="bot-menu" hidden>
-        <button class="btn dark" data-act="add-bot" data-level="low">하수</button>
-        <button class="btn dark" data-act="add-bot" data-level="mid">중수</button>
-        <button class="btn dark" data-act="add-bot" data-level="high">고수</button>
+        <button class="btn dark" data-act="add-bot" data-level="low" data-i18n="bot.low">하수</button>
+        <button class="btn dark" data-act="add-bot" data-level="mid" data-i18n="bot.mid">중수</button>
+        <button class="btn dark" data-act="add-bot" data-level="high" data-i18n="bot.high">고수</button>
       </div>
       <details class="rule-box" id="rule-box">
-        <summary id="rule-summary">변형 규칙</summary>
+        <summary id="rule-summary" data-i18n="lobby.rules">변형 규칙</summary>
         <div id="rule-switches"></div>
       </details>
-      <button class="btn primary" data-act="start" id="start-btn">시작하기</button>
-      <p class="muted">게임 중에는 다른 앱으로 넘어가지 마세요(방이 닫혀요)</p>
+      <button class="btn primary" data-act="start" id="start-btn" data-i18n="lobby.start">시작하기</button>
+      <p class="muted" data-i18n="lobby.stay">게임 중에는 다른 앱으로 넘어가지 마세요(방이 닫혀요)</p>
     </div>
     <div class="guest-only">
       <ul class="guest-rules" id="guest-rules"></ul>
-      <p class="waiting">방장이 시작하길 기다리는 중</p>
+      <p class="waiting" data-i18n="lobby.waiting">방장이 시작하길 기다리는 중</p>
     </div>
-    <button class="btn link" data-act="leave">나가기</button>
+    <button class="btn link" data-act="leave" data-i18n="leave">나가기</button>
   </section>
 
   <section class="screen game" id="screen-game" hidden>
     <div class="g-bar">
-      <span class="logo-s"><svg aria-hidden="true"><use href="#i-bomb"/></svg>막타</span>
+      <span class="logo-s"><svg aria-hidden="true"><use href="#i-bomb"/></svg><span data-i18n="app.name">막타</span></span>
       <span class="g-info" id="g-info"></span>
-      <button class="mini" data-act="leave">나가기</button>
+      <button class="mini" data-act="leave" data-i18n="leave">나가기</button>
     </div>
     <div class="ribbon" id="ribbon"></div>
-    <div class="now" id="now"><span>지금 차례</span><b id="now-name"></b><span id="now-sec"></span></div>
+    <div class="now" id="now"><span data-i18n="game.turn">지금 차례</span><b id="now-name"></b><span id="now-sec"></span></div>
     <div class="fuse" id="fuse" hidden><i></i></div>
     <div class="log" id="log" aria-live="polite"></div>
     <div class="table">
@@ -110,36 +114,36 @@
     <div class="color-info" id="color-info"></div>
     <div class="hand" id="hand"><div class="hrow" id="hrow1"></div><div class="hrow" id="hrow2"></div></div>
     <div class="g-btns">
-      <button class="btn gbtn" id="draw-btn" type="button">뽑기</button>
-      <button class="btn gbtn" id="challenge-btn" type="button" hidden>의심하기</button>
-      <button class="btn hazard" id="hazard-btn" type="button"><span>막타!</span></button>
+      <button class="btn gbtn" id="draw-btn" type="button" data-i18n="game.draw">뽑기</button>
+      <button class="btn gbtn" id="challenge-btn" type="button" hidden data-i18n="game.challenge">의심하기</button>
+      <button class="btn hazard" id="hazard-btn" type="button"><span data-i18n="game.call">막타!</span></button>
     </div>
     <div class="overlay" id="color-pick" hidden>
       <div class="sheet">
-        <p>어떤 색으로 조준할까요?</p>
+        <p data-i18n="game.pickColor">어떤 색으로 조준할까요?</p>
         <div class="color-grid" id="color-grid"></div>
       </div>
     </div>
-    <div class="swap-hint" id="swap-hint" hidden>손패를 바꿀 사람을 위에서 골라 주세요</div>
+    <div class="swap-hint" id="swap-hint" hidden data-i18n="game.swapHint">손패를 바꿀 사람을 위에서 골라 주세요</div>
     <div class="overlay" id="peek" hidden>
       <div class="sheet">
-        <p id="peek-title">상대 손패</p>
+        <p id="peek-title" data-i18n="game.peek">상대 손패</p>
         <div class="peek-cards" id="peek-cards"></div>
       </div>
     </div>
   </section>
 
   <section class="screen" id="screen-result" hidden>
-    <h2 id="result-title">결과</h2>
+    <h2 id="result-title" data-i18n="result.title">결과</h2>
     <ol class="ranking" id="ranking"></ol>
     <div class="totals" id="totals" hidden></div>
     <div class="host-only">
-      <button class="btn primary" data-act="next" id="next-btn">다음 판</button>
-      <button class="btn primary" data-act="again" id="again-btn">한 판 더</button>
-      <button class="btn dark" data-act="to-lobby">대기실로</button>
+      <button class="btn primary" data-act="next" id="next-btn" data-i18n="result.next">다음 판</button>
+      <button class="btn primary" data-act="again" id="again-btn" data-i18n="result.again">한 판 더</button>
+      <button class="btn dark" data-act="to-lobby" data-i18n="result.toLobby">대기실로</button>
     </div>
-    <p class="guest-only waiting">방장이 다음 판을 고르는 중</p>
-    <button class="btn link" data-act="leave">나가기</button>
+    <p class="guest-only waiting" data-i18n="result.waiting">방장이 다음 판을 고르는 중</p>
+    <button class="btn link" data-act="leave" data-i18n="leave">나가기</button>
   </section>
 
 </main>
@@ -149,11 +153,11 @@
 <div class="modal" id="error" hidden>
   <div class="modal-box">
     <p id="error-text"></p>
-    <button class="btn primary" id="error-retry" hidden>다시 시도</button>
-    <button class="btn dark" id="error-ok">확인</button>
+    <button class="btn primary" id="error-retry" hidden data-i18n="retry">다시 시도</button>
+    <button class="btn dark" id="error-ok" data-i18n="ok">확인</button>
   </div>
 </div>
-<div class="rotate" id="rotate">세로로 돌려 주세요</div>
+<div class="rotate" id="rotate" data-i18n="rotate">세로로 돌려 주세요</div>
 
 <script src="vendor/peerjs.min.js?v=fb6042349a"></script>
 <script src="vendor/qrcode.js?v=f5e5c21593"></script>
@@ -162,10 +166,10 @@
 <script src="js/judge.js?v=2044780369"></script>
 <script src="js/host.js?v=19797b341b"></script>
 <script src="js/net.js?v=20c9ca2e97"></script>
-<script src="js/cards.js?v=68606642f2"></script>
+<script src="js/cards.js?v=362e5176ea"></script>
 <script src="js/sound.js?v=0e521f507a"></script>
-<script src="js/ui.js?v=f6d59aa124"></script>
+<script src="js/ui.js?v=3ee62633bd"></script>
 <script src="js/client.js?v=d1c1bcc0ae"></script>
-<script src="js/app.js?v=a6e0446b80"></script>
+<script src="js/app.js?v=afaf01a2b0"></script>
 </body>
 </html>
