@@ -8,6 +8,11 @@
   const tokenKey = (code) => 'makta.token.' + code;
   const RETRY_MS = 3000;
   const RECONNECT_MS = 30000;
+  // 판 밖(대기실, 결과 화면)에서 방장과 끊기면 더 오래 기다린다. 방장이 결과를 보다가 잠깐 다른 앱에
+  // 다녀오는 일이 흔하다. 그동안 방장 쪽 방 번호가 중개 서버에서 잠시 없어질 수도 있어서(not-found) 그것도 기다린다.
+  // 방장은 이보다 조금 길게 자리를 남겨 둔다(host.js GHOST_KEEP_MS).
+  const RECONNECT_IDLE_MS = 120000;
+  const CLOSE_LINGER_MS = 300;
   const GAME_PHASES = new Set(['playing', 'judging']);
   const RESULT_PHASES = new Set(['roundover', 'matchover']);
 
@@ -66,7 +71,9 @@
     requestWake();
   }
 
-  function endRoom(message) {
+  // linger: 방장이 직접 나갈 때는 '방 닫힘' 알림이 참가자에게 닿도록 연결을 조금 늦게 끊는다.
+  // (화면을 벗어날 때는 아이폰 타이머가 멈추므로 바로 끊는다.)
+  function endRoom(message, { linger = false } = {}) {
     if (reconnect) clearTimeout(reconnect.timer);
     reconnect = null;
     if (conn) conn.close();
@@ -74,7 +81,11 @@
       host.close();
       host.dispose();
     }
-    if (room) room.close();
+    if (room) {
+      const r = room;
+      if (linger) setTimeout(() => r.close(), CLOSE_LINGER_MS);
+      else r.close();
+    }
     mode = code = host = room = conn = client = null;
     releaseWake();
     history.replaceState(null, '', location.pathname);
@@ -135,7 +146,7 @@
   function guestHandlers() {
     return {
       onMessage: (msg) => client && client.receive(msg),
-      onClose: (reason) => (reason === 'closed' ? endRoom(errorText('closed')) : startReconnect()),
+      onClose: (reason) => (reason === 'closed' ? endRoom(t('err.hostClosed')) : startReconnect()),
     };
   }
 
@@ -174,13 +185,16 @@
     sendHello();
   }
 
-  // 방장과 끊겼다. 내 쪽 문제일 수도 있으니 30초 동안 3초마다 다시 붙어 본다.
-  // 그동안 내 자리는 봇이 대신 둔다. 방장 쪽 방이 아예 없어졌으면(not-found) 바로 끝낸다.
+  // 방장과 끊겼다. 내 쪽 문제일 수도 있으니 3초마다 다시 붙어 본다.
+  // 게임 중이면 30초 동안(그동안 내 자리는 봇이 대신 둔다), 방장 쪽 방이 아예 없어졌으면(not-found) 바로 끝낸다.
+  // 대기실이나 결과 화면이면 지금 화면을 그대로 둔 채 2분 동안 방장을 기다린다. 「나가기」로 언제든 나갈 수 있다.
   function startReconnect() {
     conn = null;
     if (reconnect || !mode) return;
-    reconnect = { deadline: Date.now() + RECONNECT_MS, timer: null, trying: false };
-    UI.toast(t('net.lost'), RECONNECT_MS);
+    const playing = inGame();
+    const ms = playing ? RECONNECT_MS : RECONNECT_IDLE_MS;
+    reconnect = { deadline: Date.now() + ms, timer: null, trying: false, playing };
+    UI.toast(t(playing ? 'net.lost' : 'net.waitHost'), ms);
     tryReconnect();
   }
 
@@ -199,7 +213,7 @@
     } catch (e) {
       if (!reconnect) return;
       reconnect.trying = false;
-      if (e.code === 'not-found' || Date.now() >= reconnect.deadline) endRoom(errorText('closed'));
+      if ((e.code === 'not-found' && reconnect.playing) || Date.now() >= reconnect.deadline) endRoom(errorText('closed'));
       else reconnect.timer = setTimeout(tryReconnect, RETRY_MS);
     }
   }
@@ -210,7 +224,7 @@
     if (mode === 'host') {
       const others = client && client.view ? client.view.players.some((p) => !p.bot && p.id !== client.view.me) : false;
       if (others && !confirm(t('confirm.hostLeave'))) return;
-      endRoom(null);
+      endRoom(null, { linger: true });
     } else if (mode === 'guest') {
       if (inGame() && !confirm(t('confirm.guestLeave'))) return;
       const c = conn;

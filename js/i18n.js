@@ -182,10 +182,12 @@
       'err.full': '방이 가득 찼어요',
       'err.started': '이미 게임이 시작됐어요',
       'err.closed': '방장 연결이 끊겨 방이 닫혔어요',
+      'err.hostClosed': '방장이 방을 닫았어요',
       'err.hostLeft': '방장이 화면을 벗어나서 방이 닫혔어요',
       'retry': '다시 시도',
       'ok': '확인',
       'net.lost': '연결이 끊겼어요. 다시 연결하는 중…',
+      'net.waitHost': '방장과 연결이 끊겼어요. 돌아오기를 기다리는 중…',
       'net.back': '다시 연결됐어요',
       'confirm.hostLeave': '나가면 방이 닫혀요. 나갈까요?',
       'confirm.guestLeave': '게임에서 나갈까요? 내 자리는 봇이 이어서 해요',
@@ -343,10 +345,12 @@
       'err.full': 'The room is full.',
       'err.started': 'The game has already started.',
       'err.closed': 'Lost connection to the host, so the room closed.',
+      'err.hostClosed': 'The host closed the room.',
       'err.hostLeft': 'The host left the screen, so the room closed.',
       'retry': 'Retry',
       'ok': 'OK',
       'net.lost': 'Disconnected. Reconnecting…',
+      'net.waitHost': 'Lost the host. Waiting for them to come back…',
       'net.back': 'Reconnected',
       'confirm.hostLeave': 'Leaving will close the room. Leave?',
       'confirm.guestLeave': 'Leave the game? A bot will take over your seat.',
@@ -504,10 +508,12 @@
       'err.full': 'ルームが満員です',
       'err.started': 'ゲームはもう始まっています',
       'err.closed': 'ホストとの接続が切れ、ルームが閉じました',
+      'err.hostClosed': 'ホストがルームを閉じました',
       'err.hostLeft': 'ホストが画面を離れたため、ルームが閉じました',
       'retry': 'もう一度',
       'ok': 'OK',
       'net.lost': '接続が切れました。再接続中…',
+      'net.waitHost': 'ホストとの接続が切れました。戻るのを待っています…',
       'net.back': '再接続しました',
       'confirm.hostLeave': '退出するとルームが閉じます。退出しますか？',
       'confirm.guestLeave': 'ゲームを退出しますか？ 自分の席はボットが引き継ぎます',
@@ -564,6 +570,11 @@
     if (!doc) return;
     doc.documentElement.lang = lang;
     doc.title = t('app.name');
+    // 홈 화면에 추가할 때의 앱 이름도 지금 화면 언어로(정적 기본값은 한국어).
+    for (const name of ['apple-mobile-web-app-title', 'application-name']) {
+      const meta = doc.querySelector(`meta[name="${name}"]`);
+      if (meta) meta.setAttribute('content', t('app.name'));
+    }
     const desc = doc.querySelector('meta[name="description"]');
     if (desc) desc.setAttribute('content', t('app.desc'));
     doc.querySelectorAll('[data-i18n]').forEach((el) => { el.textContent = t(el.dataset.i18n); });

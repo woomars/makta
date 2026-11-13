@@ -17,6 +17,9 @@
     JUDGE_WINDOW_MS: 300,
     MAX_WINDOW_MS: 1000,
     PASS_GUARD_MS: 400,
+    // 판 사이에 끊긴 사람의 자리를 남겨 두는 시간. 손님은 판 밖에서 끊기면 2분 동안 다시 붙어 보므로(app.js)
+    // 그보다 조금 길게. 이 안에 방장이 다음 판을 시작하면 그 자리는 봇이 대신 두고, 돌아오면 돌려준다.
+    GHOST_KEEP_MS: 150000,
   };
   const RTT_SAMPLES = 10;
   const LOG_SIZE = 3;
@@ -135,15 +138,18 @@
         case 'call': this.onCall(m.id); break;
         case 'catch': this.onCatch(m.id); break;
         case 'jump': this.onJump(m.id, msg); break;
-        case 'leave': if (!isHost) this.handleDisconnect(peerId); break;
+        case 'leave': if (!isHost) this.handleDisconnect(peerId, { left: true }); break;
         default: break;
       }
     }
 
-    handleDisconnect(peerId) {
+    // left: 손님이 「나가기」를 눌렀다(돌아오지 않는다). 아니면 잠깐 끊긴 것일 수 있다.
+    handleDisconnect(peerId, { left = false } = {}) {
       if (this.disposed) return;
       const m = this.memberByPeer(peerId);
       if (!m || peerId === this.hostPeerId) return;
+      m.lostAt = this.clock.now();
+      m.left = left;
       if (this.inRound()) {
         // 판 중간에 끊기면 중수 봇이 바로 이어받는다.
         m.connected = false;
@@ -157,16 +163,21 @@
       } else if (this.phase === 'lobby') {
         this.members.splice(this.members.indexOf(m), 1);
       } else {
-        // 판 사이에는 자리와 점수를 남겨 두고, 다음 판을 시작할 때까지 안 돌아오면 뺀다.
+        // 판 사이에는 자리와 점수를 남겨 둔다. 다음 판 시작 때 정리한다(pruneGhosts).
         m.connected = false;
       }
       this.broadcast();
     }
 
     // 끊긴 채로 남은 사람을 자리에서 뺀다. 다음 판을 시작하거나 대기실로 갈 때 부른다.
-    pruneGhosts() {
-      this.members = this.members.filter((m) => m.bot || m.connected);
-      for (const m of this.members) { m.proxy = false; m.returning = false; }
+    // 다음 판을 시작할 때(keepRecent)는 나가기를 누르지 않고 방금 끊긴 사람의 자리를 남겨 봇이 대신 두게 한다.
+    // 결과 화면에서 폰이 잠깐 꺼진 손님이 돌아왔을 때 '이미 시작됨'으로 튕기지 않게.
+    // 대기실로 갈 때는 다 뺀다. 돌아오면 대기실에 새로 앉는다.
+    pruneGhosts(keepRecent = false) {
+      const now = this.clock.now();
+      const recent = (m) => keepRecent && !m.left && now - m.lostAt < TIMING.GHOST_KEEP_MS;
+      this.members = this.members.filter((m) => m.bot || m.connected || recent(m));
+      for (const m of this.members) { m.proxy = !m.bot && !m.connected; m.returning = false; }
     }
 
     inRound() {
@@ -178,6 +189,7 @@
     reattach(m, peerId) {
       m.peerId = peerId;
       m.connected = true;
+      m.left = false;
       this.send(peerId, { t: 'welcome', playerId: m.id, token: m.token });
       if (!this.inRound()) {
         m.proxy = false;
@@ -250,7 +262,7 @@
 
     startRound() {
       this.clearRoundTimers();
-      this.pruneGhosts();
+      this.pruneGhosts(true);
       const ids = this.members.map((m) => m.id);
       const n = ids.length;
       this.firstSeat = this.firstSeat === null ? Math.floor(this.rng() * n) : (this.firstSeat + 1) % n;
